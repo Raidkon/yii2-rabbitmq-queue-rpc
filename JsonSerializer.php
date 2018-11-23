@@ -84,14 +84,7 @@ class JsonSerializer extends BaseObject implements SerializerInterface
             return $data;
         }
         
-        $config = ['class' => $this->class];
-        
-        foreach ($data as $property => $value) {
-            if (call_user_func([$this->class,'isSet'],$property)){
-                $config[$property] = $value;
-            }
-        }
-        
+        $config = ['class' => $this->class,'params' => $data];
         return Yii::createObject($config);
     }
 }

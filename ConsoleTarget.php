@@ -14,6 +14,8 @@ class ConsoleTarget extends Target
 {
     public $exportInterval = 1;
     
+    public $categories = ['raidkon\yii2\RabbitmqQueueRpc\\*'];
+    
     /**
      * Exports log [[messages]] to a specific destination.
      * Child classes must implement this method.
