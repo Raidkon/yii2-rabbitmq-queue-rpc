@@ -38,7 +38,7 @@ class Job extends BaseObject implements \yii\queue\JobInterface
     protected $_rpcCorrelationId = null;
     
     protected $_route;
-    /** @var Command */
+    /** @var ICommand */
     protected $_command;
     
     protected $_userId = null;
@@ -101,7 +101,9 @@ class Job extends BaseObject implements \yii\queue\JobInterface
      */
     public function execute($queue): void
     {
-        $this->_queue = $queue;
+        echo '!!!',getmypid(),'-',getmygid(),'-',getmyuid(),PHP_EOL;
+        
+        /*$this->_queue = $queue;
         $this->_initRpc();
         $this->_initUser();
         
@@ -109,7 +111,7 @@ class Job extends BaseObject implements \yii\queue\JobInterface
             $this->_command->call();
         } else {
             Yii::error($this->_command->errors,Queue::class);
-        }
+        }*/
     }
     
     protected function _initRpc()
@@ -155,7 +157,7 @@ class Job extends BaseObject implements \yii\queue\JobInterface
     protected function _initCommand(): bool
     {
         $this->_route = $this->amqp_message->getRoutingKey();
-        $this->_command = new Command($this->_route,$this,$this->_queue->commands,$this->_queue->modelBinds);
+        $this->_command = new ICommand($this->_route,$this,$this->_queue->commands,$this->_queue->modelBinds);
         return $this->_command->isCall();
     }
 }

@@ -28,7 +28,7 @@ class Queue extends ExtendsQueue
     public $exchangeType  = AmqpTopic::TYPE_TOPIC;
     public $exchangeBinds = ['#'];
     public $serializer    = JsonSerializer::class;
-    public $queueName     = 'server.queue.topic';
+    public $queueName     = 'server.queue.topic2';
     public $exchangeName  = 'global.topic';
     public $user          = 'guest';
     public $password      = 'guest';
@@ -65,9 +65,10 @@ class Queue extends ExtendsQueue
             
             $ttr = $message->getProperty(self::TTR);
             $attempt = $message->getProperty(self::ATTEMPT, 1);
+            $this->handleMessageAMQP($message->getMessageId(), $message->getBody(), $ttr, $attempt, $message, $consumer);
     
-            try {
-                $this->handleMessageAMQP($message->getMessageId(), $message->getBody(), $ttr, $attempt, $message, $consumer);
+            /*try {
+            
             }
             catch (\Error $e){
                 Yii::getLogger()->log($e,Logger::LEVEL_ERROR,Queue::class);
@@ -77,7 +78,7 @@ class Queue extends ExtendsQueue
             }
             catch (\Throwable $e){
                 Yii::getLogger()->log($e,Logger::LEVEL_ERROR,Queue::class);
-            }
+            }*/
             
             $consumer->acknowledge($message);
             
@@ -98,16 +99,17 @@ class Queue extends ExtendsQueue
         $queue->setArguments(['x-max-priority' => $this->maxPriority]);
         $this->context->declareQueue($queue);
     
-        $topic = $this->context->createTopic($this->exchangeName);
-        $topic->setType($this->exchangeType);
-        $topic->addFlag(AmqpTopic::FLAG_DURABLE);
-        $this->context->declareTopic($topic);
+        $exchange = $this->context->createTopic($this->exchangeName);
+        $exchange->setType($this->exchangeType);
+        $exchange->addFlag(AmqpTopic::FLAG_DURABLE);
+        $this->context->declareTopic($exchange);
         
         foreach ($this->exchangeBinds as $bindName){
-            $this->context->bind(new AmqpBind($queue,$topic,$bindName));
+            echo 'Bind: ',$this->queueName,' -> ',$this->exchangeName,' (',$this->exchangeType,') -> ',$bindName,PHP_EOL;
+            $this->context->bind(new AmqpBind($queue,$exchange,$bindName));
         }
     
-        $this->context->bind(new AmqpBind($queue, $topic));
+        //$this->context->bind(new AmqpBind($queue, $exchange));
     
         $this->setupBrokerDone = true;
     }
