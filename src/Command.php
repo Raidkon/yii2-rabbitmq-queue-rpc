@@ -10,6 +10,8 @@ namespace raidkon\yii2\RabbitmqQueueRpc;
 
 
 
+use Interop\Amqp\AmqpMessage;
+use Interop\Queue\Exception;
 use raidkon\yii2\RabbitmqQueueRpc\interfaces\IUser;
 use raidkon\yii2\RabbitmqQueueRpc\interfaces\ICommand;
 use Yii;
@@ -87,12 +89,35 @@ class Command extends BaseObject implements ICommand
         return (bool)$this->command;
     }
     
-    public function call(): bool
+    /**
+     * @param AmqpMessage $message
+     * @return bool
+     * @throws \Interop\Queue\Exception
+     * @throws \yii\base\InvalidRouteException
+     */
+    public function call(AmqpMessage $message): bool
     {
-        $result = $this->command->runAction($this->action, ['params' => $this->params,'routeParams' => $this->routeParams]);
+        $result = $this->command->runAction($this->action, ['params' => $this->params,'routeParams' => $this->routeParams,'cmd' => $this,'message' => $message]);
         
-        if ($result === false){
+        $reply_to = $message->getReplyTo();
+        $reply_id = $message->getCorrelationId();
+        
+        if ($result === false) {
+            if ($reply_to){
+                $this->_server->sendMessage(['result' => true, 'errors' => ['method not return answer']],$reply_to,$reply_id);
+            }
             return false;
+        } elseif ($reply_to && $result === true) {
+            $this->_server->sendMessage(['result' => true],$reply_to,$reply_id);
+        } elseif ($reply_to && !is_array($result)) {
+            $this->_server->sendMessage(['result' => true,'errors' => ['method return answer incrrect type']],$reply_to,$reply_id);
+        } elseif ($reply_to) {
+            if (!key_exists('result',$result)){
+                $result['result'] = true;
+            } else {
+                $result['result'] = (bool)$result['result'];
+            }
+            $this->_server->sendMessage($result,$reply_to,$reply_id);
         }
         
         return true;
@@ -161,7 +186,7 @@ class Command extends BaseObject implements ICommand
      */
     protected function _createController($class,$id)
     {
-        $object = Yii::createObject($class,[$id,Yii::$app]);
+        $object = Yii::createObject($class,[$id,Yii::$app,'server' => $this->_server]);
         
         if (!($object instanceof Controller)) {
             throw new \Exception('Controller mus be interface:' . Controller::class);

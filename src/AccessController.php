@@ -77,7 +77,7 @@ class AccessController extends WebController implements IRabbitMqAuthActions
     public function actionTopic($username,$vhost,$resource,$name,$permission,$routing_key)
     {
         if ($this->server->checkTopic($username,$vhost,$resource,$name,$permission,$routing_key)){
-            return 'allow [administrator]';
+            return 'allow';
         }
     
         return 'deny';

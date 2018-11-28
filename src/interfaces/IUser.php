@@ -8,9 +8,13 @@
 
 namespace raidkon\yii2\RabbitmqQueueRpc\interfaces;
 
+
 use yii\web\IdentityInterface;
 
 interface IUser extends IdentityInterface
 {
-    public static function findOne($user_id);
+    /** @return IUser */
+    public static function rpcServerFind($user_id);
+    /** @return bool */
+    public function rpcServerValidPassword($password);
 }

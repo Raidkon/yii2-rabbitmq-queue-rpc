@@ -9,9 +9,11 @@
 namespace raidkon\yii2\RabbitmqQueueRpc;
 
 
+use common\components\ArrayHelper;
 use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpMessage;
 use raidkon\yii2\RabbitmqQueueRpc\exceptions\ForbiddenException;
+use raidkon\yii2\RabbitmqQueueRpc\exceptions\MessageIncorrectTypeException;
 use raidkon\yii2\RabbitmqQueueRpc\exceptions\NotCallException;
 use raidkon\yii2\RabbitmqQueueRpc\interfaces\ICommand;
 use raidkon\yii2\RabbitmqQueueRpc\interfaces\IUser;
@@ -23,8 +25,6 @@ use yii\base\InvalidConfigException;
 use yii\console\Application as ConsoleApp;
 use yii\web\Application as WebApp;
 use yii\helpers\Inflector;
-use yii\web\ForbiddenHttpException;
-use yii\web\IdentityInterface;
 
 class Server extends BaseObject implements BootstrapInterface
 {
@@ -60,6 +60,53 @@ class Server extends BaseObject implements BootstrapInterface
         } else {
             throw new InvalidConfigException('Component ' . $this->queueName . ' must be raidkon\yii2\RabbitmqQueueRpc\Queue');
         }
+    }
+    
+    /**
+     * @param $message string|array
+     * @param $answerTo
+     * @param $answerCorrelationId
+     * @param null $fromUserId
+     * @return string
+     * @throws \Interop\Queue\Exception
+     * @throws \Interop\Queue\InvalidDestinationException
+     * @throws \Interop\Queue\InvalidMessageException
+     */
+    public function sendMessage($message,$answerTo,$answerCorrelationId,$fromUserId = null)
+    {
+        if (!$fromUserId){
+            $fromUserId = ArrayHelper::getValue(Yii::$app,'user.id');
+        }
+        
+        $messageId = uniqid('', true);
+        
+        $context = $this->_queue->getContext();
+        
+        if (!is_string($message) && !is_array($message)){
+            MessageIncorrectTypeException::throw();
+        }
+        
+        if (is_array($message)){
+            $message = json_encode($message);
+        }
+        
+        $message = $context->createMessage($message);
+        $message->setDeliveryMode(AmqpMessage::DELIVERY_MODE_PERSISTENT);
+        $message->setMessageId($messageId);
+        $message->setTimestamp(time());
+        $message->setProperty('correlation_id',$answerCorrelationId);
+        $message->setProperty('user_id',$this->_queue->user);
+        $message->setRoutingKey($answerTo);
+        
+        if ($fromUserId){
+            $message->setProperty('real_user_id',$fromUserId);
+        }
+        
+        $exchange = $context->createTopic('');
+    
+        $producer = $context->createProducer();
+        $producer->send($exchange,$message);
+        return $messageId;
     }
     
     /**
@@ -122,7 +169,7 @@ class Server extends BaseObject implements BootstrapInterface
             throw new InvalidConfigException('Class user must be ' . IUser::class);
         }
         
-        return $this->userClass::findOne($user_id);
+        return $this->userClass::rpcServerFind($user_id);
     }
     
     /**
@@ -146,11 +193,23 @@ class Server extends BaseObject implements BootstrapInterface
      */
     public function handleMessage(AmqpMessage $message, AmqpConsumer $consumer)
     {
-        $user = $this->findUser($message->getHeader('user_id'));
+        $user_id      = $message->getHeader('user_id');
+        $real_user_id = $message->getProperty('real_user_id');
+        
+        if ($real_user_id && $user_id === $this->_queue->user){
+            $user_id = $real_user_id;
+        }
+        
+        $user = $this->findUser($user_id);
+        
+        echo 'handle user: ',ArrayHelper::getValue($user,'id'),PHP_EOL;
+        
+        echo 'headers:',PHP_EOL;
+        print_r($message->getHeaders());
+        print_r($message->getProperties());
+        
         $oldIdentity = Yii::$app->user->getIdentity(false);
         $cmd  = $this->createCmd($user,$message->getRoutingKey(),$message->getBody());
-    
-    
     
         if (!$cmd->isCall()){
             Yii::$app->user->setIdentity($oldIdentity);
@@ -162,7 +221,7 @@ class Server extends BaseObject implements BootstrapInterface
             ForbiddenException::create(['name' => $cmd->getCheckAccessName()]);
         }
         
-        $result = $cmd->call();
+        $result = $cmd->call($message);
         Yii::$app->user->setIdentity($oldIdentity);
         return $result;
     }
@@ -178,15 +237,15 @@ class Server extends BaseObject implements BootstrapInterface
         }
         
         
-        /** @var IdentityInterface $model */
+        /** @var IUser $model */
         $model = $this->userClass;
-        $model = $model::findIdentityByAccessToken($password);
+        $model = $model::rpcServerFind($username);
         
         if (!$model){
             return false;
         }
         
-        return $model->getId() == $username;
+        return $model->rpcServerValidPassword($password);
     }
     
     public function checkResource($username, $vhost, $resource, $name, $permission)

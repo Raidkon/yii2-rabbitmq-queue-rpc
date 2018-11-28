@@ -22,6 +22,11 @@ class BaseException extends \Exception
         throw $e;
     }
     
+    public static function throw($params = [])
+    {
+        static::create($params);
+    }
+    
     public function setParams($params)
     {
         foreach ($params as $key => $val){

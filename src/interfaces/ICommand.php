@@ -9,6 +9,7 @@
 namespace raidkon\yii2\RabbitmqQueueRpc\interfaces;
 
 
+use Interop\Amqp\AmqpMessage;
 use raidkon\yii2\RabbitmqQueueRpc\Server;
 
 interface ICommand
@@ -20,7 +21,7 @@ interface ICommand
     public function __construct(Server $server, $user, string $route, $params = null);
     public function checkAccess($type): bool;
     public function isCall(): bool;
-    public function call():bool;
+    public function call(AmqpMessage $message):bool;
     public function getCommandName():string;
     public function getCheckAccessName():string;
 }

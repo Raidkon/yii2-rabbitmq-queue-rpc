@@ -9,12 +9,16 @@
 namespace raidkon\yii2\RabbitmqQueueRpc;
 
 
+use Interop\Amqp\Impl\AmqpMessage;
 use Yii;
 use yii\base\InlineAction;
 use yii\web\BadRequestHttpException;
 
 class Controller extends \yii\web\Controller
 {
+    /** @var Server */
+    public $server;
+    
     public $enableCsrfValidation = false;
     
     /**

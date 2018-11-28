@@ -26,6 +26,6 @@ class CliCommand extends Controller
     
     public function actionTest()
     {
-        var_dump(empty(true));
+        $this->server->sendMessage(['result' => true],'amq.gen-f7dbjD-konbJmK2_wZtXMQ','5bfef255e965d');
     }
 }
