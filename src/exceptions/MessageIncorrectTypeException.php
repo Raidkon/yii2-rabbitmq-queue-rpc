@@ -6,7 +6,7 @@
  * Time: 0:24
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\exceptions;
+namespace raidkon\yii2\ServerRpc\exceptions;
 
 
 class MessageIncorrectTypeException extends BaseException

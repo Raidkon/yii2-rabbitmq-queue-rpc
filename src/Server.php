@@ -6,17 +6,17 @@
  * Time: 18:32
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 
 use common\components\ArrayHelper;
 use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpMessage;
-use raidkon\yii2\RabbitmqQueueRpc\exceptions\ForbiddenException;
-use raidkon\yii2\RabbitmqQueueRpc\exceptions\MessageIncorrectTypeException;
-use raidkon\yii2\RabbitmqQueueRpc\exceptions\NotCallException;
-use raidkon\yii2\RabbitmqQueueRpc\interfaces\ICommand;
-use raidkon\yii2\RabbitmqQueueRpc\interfaces\IUser;
+use raidkon\yii2\ServerRpc\exceptions\ForbiddenException;
+use raidkon\yii2\ServerRpc\exceptions\MessageIncorrectTypeException;
+use raidkon\yii2\ServerRpc\exceptions\NotCallException;
+use raidkon\yii2\ServerRpc\interfaces\ICommand;
+use raidkon\yii2\ServerRpc\interfaces\IUser;
 use Yii;
 use yii\base\Application;
 use yii\base\BaseObject;
@@ -58,7 +58,7 @@ class Server extends BaseObject implements BootstrapInterface
         if ($comp instanceof Queue){
             $this->_queue = $comp;
         } else {
-            throw new InvalidConfigException('Component ' . $this->queueName . ' must be raidkon\yii2\RabbitmqQueueRpc\Queue');
+            throw new InvalidConfigException('Component ' . $this->queueName . ' must be raidkon\yii2\ServerRpc\Queue');
         }
     }
     
@@ -202,13 +202,10 @@ class Server extends BaseObject implements BootstrapInterface
         
         $user = $this->findUser($user_id);
         
-        echo 'handle user: ',ArrayHelper::getValue($user,'id'),PHP_EOL;
-        
-        echo 'headers:',PHP_EOL;
-        print_r($message->getHeaders());
-        print_r($message->getProperties());
-        
         $oldIdentity = Yii::$app->user->getIdentity(false);
+        if ($user){
+            Yii::$app->user->setIdentity($user);
+        }
         $cmd  = $this->createCmd($user,$message->getRoutingKey(),$message->getBody());
     
         if (!$cmd->isCall()){

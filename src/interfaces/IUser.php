@@ -6,7 +6,7 @@
  * Time: 5:26
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\interfaces;
+namespace raidkon\yii2\ServerRpc\interfaces;
 
 
 use yii\web\IdentityInterface;

@@ -6,7 +6,7 @@
  * Time: 4:12
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 use InvalidArgumentException;
 use Yii;
@@ -48,7 +48,7 @@ class Queue extends ExtendsQueue
             $comp = Yii::$app->get($this->serverRpcComponentName);
     
             if (!($comp instanceof Server)){
-                throw new InvalidConfigException('Component ' . $this->queue . ' must be raidkon\yii2\RabbitmqQueueRpc\Queue');
+                throw new InvalidConfigException('Component ' . $this->queue . ' must be raidkon\yii2\ServerRpc\Queue');
             }
     
             try {

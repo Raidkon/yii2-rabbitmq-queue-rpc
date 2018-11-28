@@ -1,6 +1,7 @@
 {
-    "name": "raidkon/yii2-rabbitmq-queue-rpc",
+    "name": "raidkon/yii2-server-rpc",
     "type": "library",
+    "version": "0.1",
     "require": {
         "yiisoft/yii2-queue": "^2.1"
     },
@@ -10,5 +11,10 @@
             "name": "Никита Медведев",
             "email": "n@raidkon.com"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4": {
+            "raidkon\\yii2\\ServerRpc\\":"./.vendor/raidkon/yii2-rabbitmq-queue-rpc/src"
+        }
+    }
 }

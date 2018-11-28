@@ -6,7 +6,7 @@
  * Time: 18:53
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 
 use Yii;

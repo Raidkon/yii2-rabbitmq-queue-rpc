@@ -6,7 +6,7 @@
  * Time: 18:12
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\exceptions;
+namespace raidkon\yii2\ServerRpc\exceptions;
 
 
 class NotCallException extends BaseException

@@ -6,7 +6,7 @@
  * Time: 19:03
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 
 use Interop\Amqp\Impl\AmqpMessage;

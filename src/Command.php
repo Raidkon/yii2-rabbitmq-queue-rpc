@@ -6,14 +6,14 @@
  * Time: 0:32
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 
 
 use Interop\Amqp\AmqpMessage;
 use Interop\Queue\Exception;
-use raidkon\yii2\RabbitmqQueueRpc\interfaces\IUser;
-use raidkon\yii2\RabbitmqQueueRpc\interfaces\ICommand;
+use raidkon\yii2\ServerRpc\interfaces\IUser;
+use raidkon\yii2\ServerRpc\interfaces\ICommand;
 use Yii;
 use yii\base\BaseObject;
 
@@ -45,7 +45,7 @@ class Command extends BaseObject implements ICommand
         parent::__construct([]);
         
         if ($user !== null && !$user instanceof IUser){
-            throw new \Exception('User mus be interface \raidkon\yii2\RabbitmqQueueRpc\interfaces\IUser');
+            throw new \Exception('User mus be interface \raidkon\yii2\ServerRpc\interfaces\IUser');
         }
         
         $this->_server = $server;

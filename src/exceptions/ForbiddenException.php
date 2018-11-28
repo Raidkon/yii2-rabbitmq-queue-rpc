@@ -6,7 +6,7 @@
  * Time: 18:07
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\exceptions;
+namespace raidkon\yii2\ServerRpc\exceptions;
 
 
 class ForbiddenException extends BaseException

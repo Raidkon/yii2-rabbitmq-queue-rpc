@@ -6,11 +6,11 @@
  * Time: 17:58
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\interfaces;
+namespace raidkon\yii2\ServerRpc\interfaces;
 
 
 use Interop\Amqp\AmqpMessage;
-use raidkon\yii2\RabbitmqQueueRpc\Server;
+use raidkon\yii2\ServerRpc\Server;
 
 interface ICommand
 {

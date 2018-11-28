@@ -6,7 +6,7 @@
  * Time: 3:26
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc\interfaces;
+namespace raidkon\yii2\ServerRpc\interfaces;
 
 
 interface IRabbitMqAuthActions

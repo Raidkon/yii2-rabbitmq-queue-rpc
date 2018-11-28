@@ -6,11 +6,11 @@
  * Time: 3:21
  */
 
-namespace raidkon\yii2\RabbitmqQueueRpc;
+namespace raidkon\yii2\ServerRpc;
 
 
 use admin\components\WebController;
-use raidkon\yii2\RabbitmqQueueRpc\interfaces\IRabbitMqAuthActions;
+use raidkon\yii2\ServerRpc\interfaces\IRabbitMqAuthActions;
 use Yii;
 
 class AccessController extends WebController implements IRabbitMqAuthActions
