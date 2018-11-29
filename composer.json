@@ -17,7 +17,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "raidkon\\yii2\\ServerRpc\\":"./.vendor/raidkon/yii2-rabbitmq-queue-rpc/src"
+            "raidkon\\yii2\\ServerRpc\\":"src/"
         }
     }
 }
