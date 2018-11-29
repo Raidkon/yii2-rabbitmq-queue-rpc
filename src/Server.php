@@ -14,6 +14,7 @@ use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpMessage;
 use raidkon\yii2\ServerRpc\exceptions\ForbiddenException;
 use raidkon\yii2\ServerRpc\exceptions\MessageIncorrectTypeException;
+use raidkon\yii2\ServerRpc\exceptions\NotBound;
 use raidkon\yii2\ServerRpc\exceptions\NotCallException;
 use raidkon\yii2\ServerRpc\interfaces\ICommand;
 use raidkon\yii2\ServerRpc\interfaces\IUser;
@@ -60,6 +61,45 @@ class Server extends BaseObject implements BootstrapInterface
         } else {
             throw new InvalidConfigException('Component ' . $this->queueName . ' must be raidkon\yii2\ServerRpc\Queue');
         }
+    }
+    
+    /**
+     * @param array $message
+     * @param string $route
+     * @param array $params
+     * @return string
+     * @throws \Interop\Queue\Exception
+     * @throws \Interop\Queue\InvalidDestinationException
+     * @throws \Interop\Queue\InvalidMessageException
+     */
+    public function pushMessage($message,string $route,array $params = [])
+    {
+        if (!is_string($message)){
+            $message = json_encode($message);
+        }
+        
+        $route = preg_replace_callback('/{(?<var>[a-z0-9_]+?)}/is',function($matches) use ($params) {
+            if (!key_exists($matches['var'],$params)){
+                NotBound::throw(['var' => $matches['var']]);
+            }
+            return $params[$matches['var']];
+        
+        },$route);
+    
+        $messageId = uniqid('', true);
+        $context = $this->_queue->getContext();
+        
+        $message = $context->createMessage($message);
+        $message->setDeliveryMode(AmqpMessage::DELIVERY_MODE_PERSISTENT);
+        $message->setMessageId($messageId);
+        $message->setTimestamp(time());
+        $message->setRoutingKey($route);
+    
+        $exchange = $context->createTopic($this->_queue->exchangeName);
+    
+        $producer = $context->createProducer();
+        $producer->send($exchange,$message);
+        return $messageId;
     }
     
     /**

@@ -26,6 +26,6 @@ class CliCommand extends Controller
     
     public function actionTest()
     {
-        $this->server->sendMessage(['result' => true],'amq.gen-f7dbjD-konbJmK2_wZtXMQ','5bfef255e965d');
+        $this->server->pushMessage(['result' => true],'user.{user_id}.neworders',['user_id' => 1]);
     }
 }
