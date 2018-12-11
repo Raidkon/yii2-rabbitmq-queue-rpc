@@ -80,6 +80,7 @@ class Queue extends ExtendsQueue
             return true;
         });
         
+        
         $this->context->consume();
     }
     
@@ -98,7 +99,7 @@ class Queue extends ExtendsQueue
         $exchange->setType($this->exchangeType);
         $exchange->addFlag(AmqpTopic::FLAG_DURABLE);
         $this->context->declareTopic($exchange);
-        $this->context->bind(new AmqpBind($queue, $exchange));
+        $this->context->bind(new AmqpBind($queue, $exchange,'#'));
         
         $this->setupBrokerDone = true;
     }

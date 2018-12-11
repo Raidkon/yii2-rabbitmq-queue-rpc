@@ -48,6 +48,7 @@ class Server extends BaseObject implements BootstrapInterface
     public $userMap = [];
     
     public $userClass;
+    public $stompHost = '';
     
     
     public function init()
@@ -265,10 +266,6 @@ class Server extends BaseObject implements BootstrapInterface
     
     public function checkAuthUser($username,$password): bool
     {
-        $log  = print_r(['cmd' => 'checkAuthUser','username' => $username,'password' => $password],1);
-        $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-        file_put_contents('./rabbitmq.txt',$log,FILE_APPEND);
-        
         if ($this->_queue->user == $username){
             return $this->_queue->password == $password;
         }
@@ -287,10 +284,6 @@ class Server extends BaseObject implements BootstrapInterface
     
     public function checkResource($username, $vhost, $resource, $name, $permission)
     {
-        $log  = print_r(['cmd' => 'checkResource','username' => $username,'vhost' => $vhost,'resource' => $resource,'name' => $name,'permission' => $permission],1);
-        $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-        file_put_contents('./rabbitmq.txt',$log,FILE_APPEND);
-        
         if ($this->_queue->user == $username){
             return true;
         }
@@ -300,11 +293,6 @@ class Server extends BaseObject implements BootstrapInterface
     
     public function checkTopic($username, $vhost, $resource, $name, $permission,$routing_key)
     {
-        $log  = print_r(['cmd' => 'checkTopic','username' => $username,'vhost' => $vhost,'resource' => $resource,'name' => $name,'permission' => $permission,'routing_key' => $routing_key],1);
-        $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-        file_put_contents('./rabbitmq.txt',$log,FILE_APPEND);
-    
-    
         if ($this->_queue->user == $username){
             return true;
         }

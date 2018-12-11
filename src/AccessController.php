@@ -34,20 +34,11 @@ class AccessController extends WebController implements IRabbitMqAuthActions
             return $result;
         }
         catch (\Exception $e){
-            $log  = '';
-            $log .= print_r($e,1);
-            $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-            $log .= print_r(['id' => $id,'params' => $params],1);
-            $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-            file_put_contents('./rabbitmq-exception.txt',$log,FILE_APPEND);
-            Yii::error($e);
+            Yii::error($e,Server::class);
             return 'deny';
         }
         catch (\Error $e){
-            $log  = print_r($e,1);
-            $log .= "\n\n" . str_repeat('=',100) . "\n\n";
-            file_put_contents('./rabbitmq-error.txt',$log,FILE_APPEND);
-            Yii::error($e);
+            Yii::error($e,Server::class);
             return 'deny';
         }
     }
