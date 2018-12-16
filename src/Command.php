@@ -8,10 +8,7 @@
 
 namespace raidkon\yii2\ServerRpc;
 
-
-
 use Interop\Amqp\AmqpMessage;
-use Interop\Queue\Exception;
 use raidkon\yii2\ServerRpc\interfaces\IUser;
 use raidkon\yii2\ServerRpc\interfaces\ICommand;
 use Yii;
@@ -19,8 +16,6 @@ use yii\base\BaseObject;
 
 class Command extends BaseObject implements ICommand
 {
-    public $server;
-    public $user;
     public $params;
     public $routeParams = [];
     /** @var false|Controller */
@@ -31,6 +26,7 @@ class Command extends BaseObject implements ICommand
     /** @var Server */
     protected $_server;
     protected $_user;
+    protected $_safeIdentitys = [];
     
     /**
      * Command constructor.
@@ -40,16 +36,13 @@ class Command extends BaseObject implements ICommand
      * @param null $params
      * @throws \Exception
      */
-    public function __construct(Server $server, $user, string $route, $params = null)
+    public function __construct(Server $server,?IUser $user, string $route, $params = null)
     {
         parent::__construct([]);
         
-        if ($user !== null && !$user instanceof IUser){
-            throw new \Exception('User mus be interface \raidkon\yii2\ServerRpc\interfaces\IUser');
-        }
-        
+        $this->_user   = $user;
         $this->_server = $server;
-        $this->params  = $this->_parseParams($params);
+        $this->params  = $params?$this->_parseParams($params):[];
         $this->command = $this->_parseRoute($route);
     }
     
@@ -68,25 +61,72 @@ class Command extends BaseObject implements ICommand
         return $params;
     }
     
-    public function checkAccess($type): bool
+    public function checkAccess($type,?string $resource = null): bool
     {
+        if ($type===ICommand::ACCESS_DEFAULT){
+            return false;
+        }
         $cmd = $this->getCheckAccessName();
-        
         if (empty($this->_server->accessMap[$cmd])){
             return false;
         }
         $acl = $this->_server->accessMap[$cmd];
-        if ($acl === true){
-            return true;
+        if ($acl === true || $acl === false){
+            return $acl;
         }
-        if (empty($acl[$type])){
+        if (!is_array($acl)){
+            return $this->_checkAccessAcl($acl,$type,$resource);
+        }
+        if ($resource && in_array($resource,[ICommand::RESOURCE_QUEUE,ICommand::RESOURCE_TOPIC,ICommand::RESOURCE_EXCHANGE]) && key_exists($resource,$acl)){
+            $acl = $acl[$resource];
+        }
+        if (!empty($acl[$type])){
+            return $this->_checkAccessAcl($acl[$type],$type,$resource);
+        }
+        /** @todo Удалить в версии 1.0 */
+        if ($type===ICommand::ACCESS_CALL && !key_exists(ICommand::ACCESS_CALL,$acl)){
+            return $this->checkAccess(ICommand::ACCESS_WRITE,$resource);
+        }
+        if (key_exists(ICommand::ACCESS_DEFAULT,$acl)){
+            return $this->_checkAccessAcl($acl[ICommand::ACCESS_DEFAULT],$type,$resource);
+        }
+        $acl = $this->_server->accessMap[$cmd];
+        if (key_exists(ICommand::ACCESS_DEFAULT,$acl)){
+            return $this->_checkAccessAcl($acl[ICommand::ACCESS_DEFAULT],$type,$resource);
+        }
+        return false;
+    }
+    
+    protected function _checkAccessAcl($permisions,$type,?string $resource = null)
+    {
+        if ($permisions === true || $permisions === false){
+            return $permisions;
+        }
+        if (!$permisions){
             return false;
         }
+        $this->initIdentity();
+        $permisions = is_array($permisions)?$permisions:[$permisions];
+        $result = false;
+        $params = [
+            'routes'   => $this->routeParams,
+            'params'   => $this->params,
+            'access'   => $type,
+            'resource' => $resource,
+        ];
+        foreach ($permisions as $permision){
+            if (Yii::$app->user->can($permision,$params)){
+                $result = true;
+                break;
+            }
+        }
+        $this->restoreIdentity();
+        return $result;
     }
     
     public function isCall(): bool
     {
-        return (bool)$this->command;
+        return !!$this->command;
     }
     
     /**
@@ -136,44 +176,50 @@ class Command extends BaseObject implements ICommand
      */
     protected function _parseRoute($route)
     {
-        $route    = preg_replace('/[^a-z0-9\.-]/is', '',$route);
-        $routes   = explode('.', $route);
-        $prevName = null;
-        
-        $filter = function($value) use (&$prevName) {
-            $isn = is_numeric($value);
+        if (substr($route,0,8) === 'amq.gen-'){
+            $routes = ['_system_','amq','gen'];
+        } elseif (substr($route,0,4) === 'amq.'){
+            $routes = ['_system_','amq','other'];
+        } else {
+            $route = preg_replace('/[^a-z0-9\.-]/is', '', $route);
+            $routes = explode('.', $route);
+            $prevName = null;
     
-            if (!$isn){
-                $prevName = $value;
-                return true;
+            $filter = function ($value) use (&$prevName) {
+                if (!is_numeric($value)) {
+                    $prevName = $value;
+                    return true;
+                }
+                if ($prevName) {
+                    $this->routeParams[$prevName] = $value;
+                    $prevName = null;
+                }
+                return false;
+            };
+    
+            $routes = array_filter($routes, $filter);
+    
+            if (!$routes) {
+                return false;
             }
-            if($prevName){
-                $this->routeParams[$prevName] = $value;
-                $prevName = null;
-            }
-            return false;
-        };
-        
-        $routes = array_filter($routes,$filter);
-        
-        if (!$routes){
-            return false;
         }
-        
-        $cmd = implode('.',$routes);
+    
+        $cmd = implode('.', $routes);
+        $this->_commandName = $cmd;
         
         if (!empty($this->_server->controllerMap[$cmd])){
-            $this->_commandName = $cmd;
-            return $this->_createController($this->_server->controllerMap[$cmd],$routes[count($routes) - 1]);
+            $class = $this->_server->controllerMap[$cmd];
+            return $class?$this->_createController($class,$routes[count($routes) - 1]):false;
         }
         
         $action = array_pop($routes);
         $cmd    = implode('.',$routes);
     
         if (!empty($this->_server->controllerMap[$cmd])){
-            $this->action = $action;
+            $this->action       = $action;
             $this->_commandName = $cmd;
-            return $this->_createController($this->_server->controllerMap[$cmd],$routes[count($routes) - 1]);
+            $class = $this->_server->controllerMap[$cmd];
+            return $class?$this->_createController($this->_server->controllerMap[$cmd],$routes[count($routes) - 1]):false;
         }
         
         return false;
@@ -197,6 +243,33 @@ class Command extends BaseObject implements ICommand
     
     public function getCheckAccessName(): string
     {
-        return implode('.',[$this->_commandName,$this->action]);
+        return $this->_commandName . ($this->action?'.' . $this->action:'');
+    }
+    
+    public function getActionName(): ?string
+    {
+        return $this->action;
+    }
+    
+    public function initIdentity(): bool
+    {
+        if ($this->_user){
+            $this->_safeIdentitys[] = Yii::$app->user->getIdentity(false);
+            Yii::$app->user->setIdentity($this->_user);
+            return true;
+        }
+        return false;
+    }
+    
+    public function restoreIdentity(): bool
+    {
+        if ($this->_user) {
+            $restore = array_pop($this->_safeIdentitys);
+            if ($restore) {
+                Yii::$app->user->setIdentity($restore);
+                return true;
+            }
+        }
+        return false;
     }
 }

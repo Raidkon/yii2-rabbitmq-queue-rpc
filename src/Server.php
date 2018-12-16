@@ -29,6 +29,7 @@ use yii\helpers\Inflector;
 
 class Server extends BaseObject implements BootstrapInterface
 {
+    
     public $queueName = 'queueRpc';
     
     /** @var Queue */
@@ -234,69 +235,194 @@ class Server extends BaseObject implements BootstrapInterface
      */
     public function handleMessage(AmqpMessage $message, AmqpConsumer $consumer)
     {
-        $user_id      = $message->getHeader('user_id');
+        $user_id = $safe_user_id = $message->getHeader('user_id');
         $real_user_id = $message->getProperty('real_user_id');
-        
+        $log = [
+            'type'              => 'handleMessage',
+            'from_user_id'      => $safe_user_id,
+            'from_real_user_id' => $real_user_id,
+            'route_key'         => $message->getRoutingKey(),
+            'message'           => $message->getBody(),
+        ];
+        $info = function($data,$sub = null){
+            Yii::info($data,static::class . '::message' . ($sub?'::' . $sub:''));
+        };
+        $warning = function($data,$sub = null){
+            Yii::warning($data,static::class . '::message' . ($sub?'::' . $sub:''));
+        };
+        $info($log);
         if ($real_user_id && $user_id === $this->_queue->user){
             $user_id = $real_user_id;
         }
-        
         $user = $this->findUser($user_id);
-        
-        $oldIdentity = Yii::$app->user->getIdentity(false);
         if ($user){
-            Yii::$app->user->setIdentity($user);
+            $log['user_id'] = $user->getId();
         }
-        $cmd  = $this->createCmd($user,$message->getRoutingKey(),$message->getBody());
-    
+        $cmd = $this->createCmd($user,$message->getRoutingKey(),$message->getBody());
+        $cmd->initIdentity();
+        $log += [
+            'command' => $cmd->getCommandName(),
+            'action'  => $cmd->getActionName(),
+        ];
         if (!$cmd->isCall()){
-            Yii::$app->user->setIdentity($oldIdentity);
-            NotCallException::create(['route' => $message->getRoutingKey()]);
+            $cmd->restoreIdentity();
+            $warning($log + ['result' => false,'reason' => 'cmd is not call'],'result');
+            return true;
         }
         
-        if (!$cmd->checkAccess(ICommand::ACCESS_WRITE)){
-            Yii::$app->user->setIdentity($oldIdentity);
-            ForbiddenException::create(['name' => $cmd->getCheckAccessName()]);
+        if (!$cmd->checkAccess(ICommand::ACCESS_CALL,ICommand::RESOURCE_MESSAGE)){
+            $cmd->restoreIdentity();
+            $warning($log + ['result' => false,'reason' => 'not access'],'result');
+            return true;
         }
         
         $result = $cmd->call($message);
-        Yii::$app->user->setIdentity($oldIdentity);
+        
+        if ($result === true) {
+            $info($log + ['result' => $result,'reason' => 'result from command'],'result');
+        } else {
+            $warning($log + ['result' => $result,'reason' => 'result from command'],'result');
+        }
+        $cmd->restoreIdentity();
         return $result;
+    }
+    
+    protected function _findUser(?string $username):?IUser
+    {
+        /** @var IUser $model */
+        $model = $this->userClass;
+        return $model::rpcServerFind($username);
     }
     
     public function checkAuthUser($username,$password): bool
     {
+        $log = [
+            'type'     => 'checkAuthUser',
+            'username' => $username,
+            'password' => !empty($password)?'*' . strlen($password) . '*' . Yii::$app->security->generatePasswordHash($password) . '*':'*is_empty*',
+        ];
+        
+        Yii::info($log,static::class . '::access');
         if ($this->_queue->user == $username){
-            return $this->_queue->password == $password;
+            $result = $this->_queue->password == $password;
+            Yii::info($log + ['result' => $result],static::class . '::access::result');
+            return $result;
         }
         
-        
-        /** @var IUser $model */
-        $model = $this->userClass;
-        $model = $model::rpcServerFind($username);
+        $model = $this->_findUser($username);
         
         if (!$model){
+            Yii::info($log + ['result' => false],static::class . '::access::result');
             return false;
         }
-        
-        return $model->rpcServerValidPassword($password);
+    
+        $result = $model->rpcServerValidPassword($password);
+        Yii::warning($log + ['result' => $result],static::class . '::access::result');
+        return $result;
     }
     
     public function checkResource($username, $vhost, $resource, $name, $permission)
     {
+        $log = [
+            'exec_cmd'   => 'yii server-rpc/resource "' . implode('" "',func_get_args()) . '"',
+            'type'       => 'checkResource',
+            'username'   => $username,
+            'vhost'      => $vhost,
+            'resource'   => $resource,
+            'name'       => $name,
+            'permission' => $permission
+        ];
+        $info = function($data = [],$sub = null){
+            Yii::info($data,static::class . '::access' . ($sub?'::' . $sub:''));
+        };
+        $info($log);
+        
+        if (!in_array($permission,[ICommand::ACCESS_WRITE,ICommand::ACCESS_CONFIGURE,ICommand::ACCESS_READ])){
+            $info($log + ['result' => false,'reason' => 'permission not exists'],'result');
+            return false;
+        }
+        if (!in_array($resource,[ICommand::RESOURCE_TOPIC,ICommand::RESOURCE_EXCHANGE,ICommand::RESOURCE_QUEUE])){
+            $info($log + ['result' => false,'reason' => 'resource not exists'],'result');
+            return false;
+        }
+        
+        // if server connect, allow everything
         if ($this->_queue->user == $username){
+            $info($log + ['result' => true],'result');
             return true;
         }
+        
+        $user = $this->_findUser($username);
+        
+        if (!$user){
+            $info($log + ['result' => false,'reason' => 'user not exists'],'result');
+            return false;
+        }
+        
+        $log['user_id'] = $user->getId();
     
+        $cmd = $this->createCmd($user,$name);
+        
+        $log['command_name'] = $cmd->getCommandName();
+    
+        if (!$cmd->checkAccess($permission,$resource)){
+            $info($log + ['result' => false,'reason' => 'not access'],'result');
+            return false;
+        }
+        
+        
+        $info($log + ['result' => true],'result');
         return true;
     }
     
     public function checkTopic($username, $vhost, $resource, $name, $permission,$routing_key)
     {
+        $log = [
+            'exec_cmd'    => 'yii server-rpc/topic "' . implode('" "',func_get_args()) . '"',
+            'type'        => 'checkTopic',
+            'username'    => $username,
+            'vhost'       => $vhost,
+            'resource'    => $resource,
+            'name'        => $name,
+            'permission'  => $permission,
+            'routing_key' => $routing_key,
+        ];
+        $info = function($data = [],$sub = null) {
+            Yii::info($data,static::class . '::access' . ($sub?'::' . $sub:''));
+        };
+        $info();
         if ($this->_queue->user == $username){
+            $info($log + ['result' => true],'result');
             return true;
         }
+        if (!in_array($permission,[ICommand::ACCESS_WRITE,ICommand::ACCESS_CONFIGURE,ICommand::ACCESS_READ])){
+            $info($log + ['result' => false,'reason' => 'permission not exists'],'result');
+            return false;
+        }
+        if (!in_array($resource,[ICommand::RESOURCE_TOPIC])){
+            $info($log + ['result' => false,'reason' => 'resource not exists'],'result');
+            return false;
+        }
     
+        $user = $this->_findUser($username);
+    
+        if (!$user){
+            $info($log + ['result' => false,'reason' => 'user not exists'],'result');
+            return false;
+        }
+    
+        $log['user_id'] = $user->getId();
+    
+        $cmd = $this->createCmd($user,$routing_key);
+    
+        $log['command'] = $cmd->getCommandName();
+        $log['action']  = $cmd->getActionName();
+    
+        if (!$cmd->checkAccess($permission,$resource)){
+            $info($log + ['result' => false,'reason' => 'not access'],'result');
+            return false;
+        }
+        $info($log + ['result' => true,'reason' => 'default'],'result');
         return true;
     }
 }

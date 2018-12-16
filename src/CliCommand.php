@@ -28,4 +28,22 @@ class CliCommand extends Controller
     {
         $this->server->pushMessage(['result' => true],'user.{user_id}.neworders',['user_id' => 1]);
     }
+    
+    public function actionResource($username,$vhost,$resource,$name,$permission)
+    {
+        if ($this->server->checkResource($username,$vhost,$resource,$name,$permission)){
+            echo 'allow',PHP_EOL;
+        } else {
+            echo 'deny',PHP_EOL;
+        }
+    }
+    
+    public function actionTopic($username,$vhost,$resource,$name,$permission,$routing_key)
+    {
+        if ($this->server->checkTopic($username,$vhost,$resource,$name,$permission,$routing_key)){
+            echo 'allow',PHP_EOL;
+        } else {
+            echo 'deny',PHP_EOL;
+        }
+    }
 }
