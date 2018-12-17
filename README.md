@@ -8,8 +8,8 @@ with the following format:
 
 And constructed with the following guidelines:
 
-* Breaking backwards compatibility bumps the major
-* New additions without breaking backwards compatibility bumps the minor
-* Bug fixes and misc changes bump the patch
+* major - Breaking backwards compatibility bumps the major
+* minor - New additions without breaking backwards compatibility bumps the minor
+* patch - Bug fixes and misc changes bump the patch
 
 For more information on semantic versioning, please visit http://semver.org/.
