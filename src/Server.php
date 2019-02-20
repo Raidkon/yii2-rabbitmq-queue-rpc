@@ -211,6 +211,10 @@ class Server extends BaseObject implements BootstrapInterface
             throw new InvalidConfigException('Class user must be ' . IUser::class);
         }
         
+        if (!$user_id) {
+            return null;
+        }
+        
         return $this->userClass::rpcServerFind($user_id);
     }
     
