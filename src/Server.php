@@ -247,6 +247,8 @@ class Server extends BaseObject implements BootstrapInterface
             'from_real_user_id' => $real_user_id,
             'route_key'         => $message->getRoutingKey(),
             'message'           => $message->getBody(),
+            'reply_to'          => $message->getReplyTo(),
+            'correlation_id'    => $message->getCorrelationId(),
         ];
         $info = function($data,$sub = null){
             Yii::info($data,static::class . '::message' . ($sub?'::' . $sub:''));
@@ -262,6 +264,7 @@ class Server extends BaseObject implements BootstrapInterface
         if ($user){
             $log['user_id'] = $user->getId();
         }
+        $info($log);
         $cmd = $this->createCmd($user,$message->getRoutingKey(),$message->getBody());
         $cmd->initIdentity();
         $log += [
