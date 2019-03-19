@@ -180,6 +180,10 @@ class Command extends BaseObject implements ICommand
             $routes = ['_system_','amq','gen'];
         } elseif (substr($route,0,4) === 'amq.'){
             $routes = ['_system_','amq','other'];
+        } elseif (substr($route,0,19) === 'stomp-subscription-'){
+            $routes = ['_system_','stomp','subscription'];
+        } elseif (substr($route,0,6) === 'stomp-'){
+            $routes = ['_system_','stomp','other'];
         } else {
             $route = preg_replace('/[^a-z0-9\.-]/is', '', $route);
             $routes = explode('.', $route);
