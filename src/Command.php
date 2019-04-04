@@ -188,6 +188,8 @@ class Command extends BaseObject implements ICommand
             $routes = ['_system_', 'rmq-objc', 'gеn'];
         } elseif (substr($route,0,16) === 'rmq-objc-client.') {
             $routes = ['_system_', 'rmq-objc', 'other'];
+        }  elseif (substr($route,0,10) === 'temp-user-') {
+            $routes = ['_system_', 'user', 'temp'];
         } else {
             $route = preg_replace('/[^a-z0-9\.-]/is', '', $route);
             $routes = explode('.', $route);
