@@ -12,12 +12,11 @@ namespace raidkon\yii2\ServerRpc;
 use common\components\ArrayHelper;
 use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpMessage;
-use raidkon\yii2\ServerRpc\exceptions\ForbiddenException;
 use raidkon\yii2\ServerRpc\exceptions\MessageIncorrectTypeException;
 use raidkon\yii2\ServerRpc\exceptions\NotBound;
-use raidkon\yii2\ServerRpc\exceptions\NotCallException;
 use raidkon\yii2\ServerRpc\interfaces\ICommand;
 use raidkon\yii2\ServerRpc\interfaces\IUser;
+use Throwable;
 use Yii;
 use yii\base\Application;
 use yii\base\BaseObject;
@@ -260,7 +259,11 @@ class Server extends BaseObject implements BootstrapInterface
         if ($real_user_id && $user_id === $this->_queue->user){
             $user_id = $real_user_id;
         }
-        $user = $this->findUser($user_id);
+        try {
+            $user = $this->findUser($user_id);
+        } catch (Throwable $throwable) {
+            $user = null;
+        }
         if ($user){
             $log['user_id'] = $user->getId();
         }
