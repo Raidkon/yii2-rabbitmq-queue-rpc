@@ -10,8 +10,11 @@ namespace raidkon\yii2\ServerRpc;
 
 
 use common\components\ArrayHelper;
+use Exception;
 use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpMessage;
+use Interop\Queue\InvalidDestinationException;
+use Interop\Queue\InvalidMessageException;
 use raidkon\yii2\ServerRpc\exceptions\MessageIncorrectTypeException;
 use raidkon\yii2\ServerRpc\exceptions\NotBound;
 use raidkon\yii2\ServerRpc\interfaces\ICommand;
@@ -23,8 +26,8 @@ use yii\base\BaseObject;
 use yii\base\BootstrapInterface;
 use yii\base\InvalidConfigException;
 use yii\console\Application as ConsoleApp;
-use yii\web\Application as WebApp;
 use yii\helpers\Inflector;
+use yii\web\Application as WebApp;
 
 class Server extends BaseObject implements BootstrapInterface
 {
@@ -70,8 +73,8 @@ class Server extends BaseObject implements BootstrapInterface
      * @param array $params
      * @return string
      * @throws \Interop\Queue\Exception
-     * @throws \Interop\Queue\InvalidDestinationException
-     * @throws \Interop\Queue\InvalidMessageException
+     * @throws InvalidDestinationException
+     * @throws InvalidMessageException
      */
     public function pushMessage($message,string $route,array $params = [])
     {
@@ -110,8 +113,8 @@ class Server extends BaseObject implements BootstrapInterface
      * @param null $fromUserId
      * @return string
      * @throws \Interop\Queue\Exception
-     * @throws \Interop\Queue\InvalidDestinationException
-     * @throws \Interop\Queue\InvalidMessageException
+     * @throws InvalidDestinationException
+     * @throws InvalidMessageException
      */
     public function sendMessage($message,$answerTo,$answerCorrelationId,$fromUserId = null)
     {
@@ -222,7 +225,7 @@ class Server extends BaseObject implements BootstrapInterface
      * @param string $route
      * @param null $params
      * @return ICommand
-     * @throws \Exception
+     * @throws Exception
      */
     public function createCmd($user, string $route, $params = null): ICommand
     {
@@ -234,7 +237,7 @@ class Server extends BaseObject implements BootstrapInterface
      * @param AmqpConsumer $consumer
      * @throws InvalidConfigException
      * @throws exceptions\BaseException
-     * @throws \Exception
+     * @throws Exception
      */
     public function handleMessage(AmqpMessage $message, AmqpConsumer $consumer)
     {
@@ -374,6 +377,7 @@ class Server extends BaseObject implements BootstrapInterface
         $cmd = $this->createCmd($user,$name);
         
         $log['command_name'] = $cmd->getCommandName();
+        $log['command_action'] = $cmd->getActionName();
     
         if (!$cmd->checkAccess($permission,$resource)){
             $info($log + ['result' => false,'reason' => 'not access'],'result');
