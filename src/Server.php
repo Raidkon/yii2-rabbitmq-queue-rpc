@@ -52,6 +52,7 @@ class Server extends BaseObject implements BootstrapInterface
     
     public $userClass;
     public $stompHost = '';
+    public $isLazy = true;
     
     
     public function init()
@@ -67,6 +68,16 @@ class Server extends BaseObject implements BootstrapInterface
         }
     }
     
+    public function getComponentId(): string
+    {
+        foreach (Yii::$app->getComponents(false) as $id => $component) {
+            if ($component === $this) {
+                return $id;
+            }
+        }
+        throw new InvalidConfigException('Queue must be an application component.');
+    }
+    
     /**
      * @param array $message
      * @param string $route
@@ -78,10 +89,28 @@ class Server extends BaseObject implements BootstrapInterface
      */
     public function pushMessage($message,string $route,array $params = [])
     {
+        $messageId = uniqid('', true);
+        
+        if ($this->isLazy) {
+            Yii::$app->queue->push(new Job([
+                'messageId' => $messageId,
+                'message' => $message,
+                'route' => $route,
+                'params' => $params,
+                'componentId' => $this->getComponentId()
+            ]));
+            
+            return $messageId;
+        }
+        return $this->pushMessageNow($messageId, $message, $route, $params);
+    }
+    
+    public function pushMessageNow($messageId, $message,string $route,array $params = [])
+    {
         if (!is_string($message)){
             $message = json_encode($message);
         }
-        
+    
         $route = preg_replace_callback('/{(?<var>[a-z0-9_]+?)}/is',function($matches) use ($params) {
             if (!key_exists($matches['var'],$params)){
                 NotBound::throw(['var' => $matches['var']]);
@@ -90,9 +119,9 @@ class Server extends BaseObject implements BootstrapInterface
         
         },$route);
     
-        $messageId = uniqid('', true);
+    
         $context = $this->_queue->getContext();
-        
+    
         $message = $context->createMessage($message);
         $message->setDeliveryMode(AmqpMessage::DELIVERY_MODE_PERSISTENT);
         $message->setMessageId($messageId);
