@@ -53,6 +53,7 @@ class Server extends BaseObject implements BootstrapInterface
     public $userClass;
     public $stompHost = '';
     public $isLazy = true;
+    public $authCacheTime = 60;
     
     
     public function init()
@@ -338,6 +339,25 @@ class Server extends BaseObject implements BootstrapInterface
     
     public function checkAuthUser($username,$password): bool
     {
+        $cacheKey = [
+            'type' => static::class,
+            'user' => $username,
+            'password' => $password
+        ];
+    
+        $cache = null;
+        
+        if ($this->authCacheTime > 0) {
+            $cache = Yii::$app->cache;
+    
+            $result = $cache->get($cacheKey);
+    
+            if ($result !== false) {
+                return !!$result;
+            }
+        }
+        
+        
         $log = [
             'type'     => 'checkAuthUser',
             'username' => $username,
@@ -347,6 +367,7 @@ class Server extends BaseObject implements BootstrapInterface
         Yii::info($log,static::class . '::access');
         if ($this->_queue->user == $username){
             $result = $this->_queue->password == $password;
+            $cache && $cache->set($cacheKey, (int)$result, 60);
             Yii::info($log + ['result' => $result],static::class . '::access::result');
             return $result;
         }
@@ -355,11 +376,13 @@ class Server extends BaseObject implements BootstrapInterface
         
         if (!$model){
             Yii::info($log + ['result' => false],static::class . '::access::result');
+            $cache && $cache->set($cacheKey, 0, 60);
             return false;
         }
     
         $result = $model->rpcServerValidPassword($password);
-        Yii::warning($log + ['result' => $result],static::class . '::access::result');
+        Yii::info($log + ['result' => $result],static::class . '::access::result');
+        $cache && $cache->set($cacheKey, (int)$result, 60);
         return $result;
     }
     
