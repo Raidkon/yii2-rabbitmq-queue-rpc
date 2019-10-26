@@ -53,7 +53,7 @@ class Server extends BaseObject implements BootstrapInterface
     public $userClass;
     public $stompHost = '';
     public $isLazy = true;
-    public $authCacheTime = 60;
+    public $authCacheTime = 0;
     
     
     public function init()
